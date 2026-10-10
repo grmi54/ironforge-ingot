@@ -1,0 +1,190 @@
+#cloud-config
+# IronForge Ingot - Raspberry Pi Server Configuration
+# Generated from profile: {{ profile_name }}
+
+hostname: {{ hostname }}
+fqdn: {{ hostname }}.local
+manage_etc_hosts: true
+
+locale: {{ locale }}
+timezone: {{ timezone }}
+
+# User configuration
+users:
+  - name: {{ users[0].username }}
+    passwd: {{ users[0].password }}
+    groups: {{ users[0].groups | join(', ') }}
+    shell: /bin/bash
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL
+
+# SSH configuration
+ssh_pwauth: {{ 'true' if security.password_authentication else 'false' }}
+disable_root: {{ 'true' if security.disable_root else 'false' }}
+
+{% if users[0].ssh_authorized_keys %}
+ssh_authorized_keys:
+{% for key in users[0].ssh_authorized_keys %}
+  - {{ key }}
+{% endfor %}
+{% endif %}
+
+# Package management
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+packages:
+{% for package in packages %}
+  - {{ package }}
+{% endfor %}
+
+# Write post-install scripts
+write_files:
+  - path: /opt/ironforge/setup-ssh.sh
+    content: |
+      #!/bin/bash
+      # SSH Setup Script - IronForge Ingot
+      
+      set -e
+      
+      echo "=== Setting up SSH ==="
+      
+      # Backup original sshd_config
+      cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+      
+      # Configure SSH
+      cat > /etc/ssh/sshd_config <<EOF
+# IronForge SSH Configuration
+
+Port 22
+AddressFamily any
+ListenAddress 0.0.0.0
+
+# Authentication
+PermitRootLogin no
+PasswordAuthentication {{ 'yes' if security.password_authentication else 'no' }}
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+
+# Security
+MaxAuthTries 3
+LoginGraceTime 60
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+UsePAM yes
+
+# Session
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_*
+
+# Subsystem
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# Keep alive
+ClientAliveInterval 60
+ClientAliveCountMax 2
+EOF
+      
+      # Set proper permissions
+      chmod 644 /etc/ssh/sshd_config
+      chmod 600 /etc/ssh/ssh_host_*_key 2>/dev/null || true
+      
+      # Restart SSH service
+      systemctl restart sshd || systemctl restart ssh || true
+      
+      echo "=== SSH setup complete ==="
+    permissions: '0755'
+  
+  - path: /opt/ironforge/setup-rpi.sh
+    content: |
+      #!/bin/bash
+      # Raspberry Pi Optimization Script - IronForge Ingot
+      
+      set -e
+      
+      echo "=== Setting up Raspberry Pi optimizations ==="
+      
+      # 1. CPU Governor (performance mode for server)
+      if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
+          echo "performance" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+          echo "CPU governor set to performance"
+      fi
+      
+      # 2. ZRAM configuration (compressed swap to preserve SD card)
+      if [ -f /etc/default/zramswap ]; then
+          cat > /etc/default/zramswap <<EOF
+# IronForge ZRAM Configuration
+ALGO=lz4
+PERCENT={{ (rpi.zram_fraction * 100) | int }}
+EOF
+          systemctl enable zramswap
+          systemctl start zramswap
+          echo "ZRAM configured and enabled"
+      fi
+      
+      # 3. tmpfs for logs (reduces SD card writes)
+{% if rpi.tmpfs_logs %}
+      # Mount /var/log as tmpfs
+      if ! grep -q "/var/log" /etc/fstab; then
+          echo "tmpfs /var/log tmpfs defaults,noatime,size=50M 0 0" >> /etc/fstab
+          echo "tmpfs configured for /var/log"
+      fi
+{% endif %}
+      
+      # 4. WiFi and Bluetooth configuration
+{% if not rpi.wifi_enabled %}
+      # Disable WiFi
+      if ! grep -q "dtoverlay=disable-wifi" /boot/firmware/config.txt; then
+          echo "dtoverlay=disable-wifi" >> /boot/firmware/config.txt
+          echo "WiFi disabled"
+      fi
+{% endif %}
+      
+{% if not rpi.bluetooth_enabled %}
+      # Disable Bluetooth
+      if ! grep -q "dtoverlay=disable-bt" /boot/firmware/config.txt; then
+          echo "dtoverlay=disable-bt" >> /boot/firmware/config.txt
+          echo "Bluetooth disabled"
+      fi
+{% endif %}
+      
+      # 5. Reduce SD card wear
+      # Add noatime to mount options
+      sed -i 's/defaults,/defaults,noatime,/g' /etc/fstab
+      
+      # 6. Configure UFW firewall
+{% if security.ufw_enabled %}
+      ufw default deny incoming
+      ufw default allow outgoing
+{% for rule in security.ufw_rules %}
+      ufw allow {{ rule.port }}/{{ rule.proto }}
+{% endfor %}
+      ufw --force enable
+      echo "UFW firewall configured and enabled"
+{% endif %}
+      
+      # 7. Configure sysctl parameters
+{% if sysctl %}
+      cat > /etc/sysctl.d/99-ironforge.conf <<EOF
+# IronForge sysctl configuration
+{% for param in sysctl %}
+{{ param }}
+{% endfor %}
+EOF
+      sysctl --system
+      echo "sysctl parameters configured"
+{% endif %}
+      
+      echo "=== Raspberry Pi optimizations complete ==="
+    permissions: '0755'
+
+# Run post-install scripts
+runcmd:
+  - echo "=== IronForge Ingot: Running post-install scripts ==="
+  - /opt/ironforge/setup-ssh.sh
+  - /opt/ironforge/setup-rpi.sh
+  - echo "=== IronForge Ingot: Post-install scripts complete ==="
+  - echo "=== IronForge Ingot: Rebooting system ==="
+  - reboot
