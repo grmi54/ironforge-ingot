@@ -1,0 +1,84 @@
+# Dev Workstation Profile - Development Environment
+# Optimized for developers with common tools and utilities
+
+hostname: ubuntu-dev
+locale: en_US.UTF-8
+keyboard:
+  layout: us
+timezone: UTC
+
+storage:
+  layout:
+    name: lvm
+
+users:
+  - username: dev
+    password: "$6$rounds=4096$randomsalt$hashedpassword"
+    ssh_authorized_keys: []
+    groups:
+      - sudo
+      - users
+      - docker
+
+packages:
+  # Essential tools
+  - curl
+  - wget
+  - git
+  - vim
+  - htop
+  - net-tools
+  - openssh-server
+  - tmux
+  - jq
+  - unzip
+  - tree
+  - ripgrep
+  - fd-find
+  
+  # Development languages and tools
+  - build-essential
+  - python3
+  - python3-pip
+  - python3-venv
+  - nodejs
+  - npm
+  - golang-go
+  - rustc
+  - cargo
+  
+  # Docker and container tools
+  - docker.io
+  - docker-compose
+  
+  # IDE and editors
+  - code
+  - neovim
+  
+  # Database clients
+  - postgresql-client
+  - redis-tools
+  
+  # Network tools
+  - nmap
+  - tcpdump
+  - telnet
+  - dnsutils
+
+post_install_scripts:
+  - setup-ssh.sh
+  - setup-docker.sh
+  - setup-users.sh
+  - setup-dev-tools.sh
+
+security:
+  disable_root: true
+  password_authentication: true  # Allow password auth for dev workstations
+  ufw_enabled: false
+
+development:
+  git_config:
+    user.name: "Developer"
+    user.email: "dev@example.com"
+  shell: zsh
+  install_zsh: true

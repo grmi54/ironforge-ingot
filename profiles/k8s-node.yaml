@@ -1,0 +1,88 @@
+# Kubernetes Node Profile - K8s Worker/Control Plane
+# Optimized for Kubernetes nodes with container runtime
+
+hostname: k8s-node
+locale: en_US.UTF-8
+keyboard:
+  layout: us
+timezone: UTC
+
+storage:
+  layout:
+    name: lvm
+
+users:
+  - username: admin
+    password: "$6$rounds=4096$randomsalt$hashedpassword"
+    ssh_authorized_keys: []
+    groups:
+      - sudo
+      - users
+      - docker
+
+packages:
+  # Essential tools
+  - curl
+  - wget
+  - git
+  - vim
+  - htop
+  - net-tools
+  - openssh-server
+  - tmux
+  - jq
+  - unzip
+  
+  # Container runtime
+  - docker.io
+  - containerd
+  
+  # Kubernetes tools
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  
+  # Network tools
+  - ebtables
+  - ethtool
+  - socat
+  - conntrack
+  
+  # Monitoring
+  - sysstat
+  - iotop
+
+post_install_scripts:
+  - setup-ssh.sh
+  - setup-docker.sh
+  - setup-k8s.sh
+
+security:
+  disable_root: true
+  password_authentication: false
+  ufw_enabled: false  # K8s manages its own networking
+
+kubernetes:
+  version: "1.30"
+  container_runtime: containerd
+  cni: calico
+  
+  # Node role: worker or control-plane
+  role: worker
+  
+  # Pod network CIDR
+  pod_cidr: "10.244.0.0/16"
+  
+  # Service CIDR
+  service_cidr: "10.96.0.0/12"
+
+kernel_parameters:
+  - net.bridge.bridge-nf-call-iptables=1
+  - net.bridge.bridge-nf-call-ip6tables=1
+  - net.ipv4.ip_forward=1
+
+sysctl:
+  - vm.swappiness=0
+  - net.core.somaxconn=32768
+  - net.ipv4.tcp_max_syn_backlog=32768

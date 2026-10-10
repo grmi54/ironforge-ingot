@@ -1,0 +1,59 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: {{ locale }}
+  keyboard:
+    layout: {{ keyboard.layout }}
+  timezone: {{ timezone }}
+  
+  identity:
+    hostname: {{ hostname }}
+    username: {{ users[0].username }}
+    password: {{ users[0].password }}
+  
+  ssh:
+    install-server: true
+    allow-pw: {{ 'true' if security.password_authentication else 'false' }}
+    authorized-keys: {{ users[0].ssh_authorized_keys | tojson }}
+  
+  storage:
+    layout:
+      name: {{ storage.layout.name }}
+  
+  packages: {{ packages | tojson }}
+  
+  late-commands:
+    # Copy post-install scripts to target
+    - mkdir -p /target/opt/ironforge
+    - cp -r /cdrom/ironforge/scripts/* /target/opt/ironforge/
+    - chmod +x /target/opt/ironforge/*.sh
+    
+    # Execute post-install scripts
+    {% for script in post_install_scripts %}
+    - curtin in-target -- bash /opt/ironforge/{{ script }}
+    {% endfor %}
+    
+    # Cleanup
+    - rm -rf /target/opt/ironforge
+    
+  user-data:
+    disable_root: {{ 'true' if security.disable_root else 'false' }}
+    
+    {% if security.ufw_enabled %}
+    # UFW configuration
+    runcmd:
+      - ufw default deny incoming
+      - ufw default allow outgoing
+      {% for rule in security.ufw_rules %}
+      - ufw allow {{ rule.port }}/{{ rule.proto }}
+      {% endfor %}
+      - ufw --force enable
+    {% endif %}
+    
+    {% if kernel_parameters is defined %}
+    # Kernel parameters
+    sysctl:
+      {% for param in kernel_parameters %}
+      {{ param }}
+      {% endfor %}
+    {% endif %}

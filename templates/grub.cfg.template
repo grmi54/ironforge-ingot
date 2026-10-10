@@ -1,0 +1,61 @@
+set timeout=30
+
+loadfont unicode
+
+set menu_color_normal=white/black
+set menu_color_highlight=black/light-gray
+
+if [ "$grub_platform" = "efi" ]; then
+    set default='0'
+    set timeout=5
+    
+    menuentry 'Install Ubuntu Server (Autoinstall)' {
+        set gfxpayload=keep
+        linux   /casper/vmlinuz quiet autoinstall ds=nocloud\\\;s=/cdrom/nocloud/  ---
+        initrd  /casper/initrd
+    }
+    
+    menuentry 'Install Ubuntu Server (Interactive)' {
+        set gfxpayload=keep
+        linux   /casper/vmlinuz quiet  ---
+        initrd  /casper/initrd
+    }
+    
+    menuentry 'Boot from first hard disk' {
+        set root=(hd0)
+        chainloader +1
+    }
+    
+    menuentry 'Check disc for defects' {
+        set gfxpayload=keep
+        linux   /casper/vmlinuz quiet  ---
+        initrd  /casper/initrd
+    }
+else
+    set default='0'
+    set timeout=5
+    
+    menuentry 'Install Ubuntu Server (Autoinstall)' {
+        set gfxpayload=keep
+        linux   /casper/vmlinuz quiet autoinstall ds=nocloud\\\;s=/cdrom/nocloud/  ---
+        initrd  /casper/initrd
+    }
+    
+    menuentry 'Install Ubuntu Server (Interactive)' {
+        set gfxpayload=keep
+        linux   /casper/vmlinuz quiet  ---
+        initrd  /casper/initrd
+    }
+    
+    menuentry 'Boot from first hard disk' {
+        inspart chain
+        set root=(hd0)
+        chainloader +1
+    }
+    
+    menuentry 'Check disc for defects' {
+        set gfxpayload=keep
+        linux   /casper/vmlinuz quiet  ---
+        initrd  /casper/initrd
+    }
+fi

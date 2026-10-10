@@ -1,0 +1,36 @@
+# Base Profile - Minimal Ubuntu Installation
+# Use this profile for minimal systems or as a starting point for custom profiles
+
+hostname: ubuntu-base
+locale: en_US.UTF-8
+keyboard:
+  layout: us
+timezone: UTC
+
+storage:
+  layout:
+    name: direct
+
+users:
+  - username: admin
+    password: "$6$rounds=4096$randomsalt$hashedpassword"
+    ssh_authorized_keys: []
+    groups:
+      - sudo
+      - users
+
+packages:
+  - curl
+  - wget
+  - git
+  - vim
+  - htop
+  - net-tools
+  - openssh-server
+
+post_install_scripts:
+  - setup-ssh.sh
+
+security:
+  disable_root: true
+  password_authentication: false
