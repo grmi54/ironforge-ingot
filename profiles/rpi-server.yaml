@@ -1,0 +1,85 @@
+# RPi Server Profile - Raspberry Pi 5 Production Server
+# Optimized for Raspberry Pi 5 with SD card storage
+# No Docker - use Ansible for application deployment
+
+hostname: rpi-server
+locale: en_US.UTF-8
+keyboard:
+  layout: us
+timezone: UTC
+
+storage:
+  layout:
+    name: direct  # No LVM on SD card (reduces wear)
+
+users:
+  - username: admin
+    password: "$6$rounds=4096$randomsalt$hashedpassword"
+    ssh_authorized_keys: []
+    groups:
+      - sudo
+      - users
+
+packages:
+  # Essential tools
+  - curl
+  - wget
+  - git
+  - vim
+  - htop
+  - net-tools
+  - openssh-server
+  - tmux
+  - jq
+  - unzip
+  
+  # Raspberry Pi specific
+  - linux-modules-raspi
+  - libraspberrypi-bin
+  - rpi-eeprom
+  - zram-tools
+  
+  # System utilities
+  - sysstat
+  - iotop
+  - nmap
+  - tcpdump
+
+post_install_scripts:
+  - setup-ssh.sh
+  - setup-rpi.sh
+
+security:
+  disable_root: true
+  password_authentication: false
+  ufw_enabled: true
+  ufw_rules:
+    - port: 22
+      proto: tcp
+      action: allow
+    - port: 80
+      proto: tcp
+      action: allow
+    - port: 443
+      proto: tcp
+      action: allow
+
+# Raspberry Pi specific optimizations
+rpi:
+  cpu_governor: performance
+  enable_zram: true
+  zram_fraction: 0.5  # 50% of RAM for swap
+  tmpfs_logs: true    # Mount /var/log as tmpfs (reduces SD writes)
+  wifi_enabled: true
+  bluetooth_enabled: true
+
+kernel_parameters:
+  - net.core.somaxconn=65535
+  - net.ipv4.tcp_max_syn_backlog=65535
+
+sysctl:
+  - vm.swappiness=10
+  - vm.vfs_cache_pressure=50
+  - net.core.netdev_max_backlog=5000
+  - net.core.somaxconn=65535
+  - net.ipv4.tcp_max_syn_backlog=65535

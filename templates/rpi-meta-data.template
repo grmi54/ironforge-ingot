@@ -1,0 +1,2 @@
+instance-id: ironforge-rpi-{{ timestamp }}
+local-hostname: {{ hostname }}
